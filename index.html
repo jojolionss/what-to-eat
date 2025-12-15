@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- Updated Viewport for iOS: disable zoom, handle notch -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- iOS Web App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="今天吃什么">
+    <meta name="format-detection" content="telephone=no">
+
+    <!-- App Icon for Home Screen (Fried Egg Icon) -->
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/562/562678.png">
+
+    <title>今天吃什么？完美治愈选择困难症</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* iOS System Font Stack */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+            background-color: #fef3c7; /* Amber 50 */
+            /* iOS Safe Area Support */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            /* Prevent tap highlight color */
+            -webkit-tap-highlight-color: transparent;
+            /* Smooth scrolling */
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .food-card {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .btn-select {
+            transition: all 0.2s;
+        }
+
+        .btn-select.active {
+            background-color: #f59e0b; /* Amber 500 */
+            color: white;
+            border-color: #f59e0b;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.3);
+        }
+
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        /* Confetti animation for result */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            animation: fall linear forwards;
+        }
+
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(720deg); }
+        }
+
+        /* Recipe card styling */
+        .recipe-card {
+            background-image: radial-gradient(#fcd34d 15%, transparent 16%), radial-gradient(#fcd34d 15%, transparent 16%);
+            background-size: 10px 10px;
+            background-position: 0 0, 5px 5px;
+            background-color: #fffbeb;
+        }
+
+        /* Restaurant card styling */
+        .restaurant-card {
+            background-image: radial-gradient(#cbd5e1 15%, transparent 16%), radial-gradient(#cbd5e1 15%, transparent 16%);
+            background-size: 10px 10px;
+            background-position: 0 0, 5px 5px;
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 text-gray-800">
+
+    <div class="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden relative border-4 border-orange-200 flex flex-col">
+        
+        <!-- Header -->
+        <div class="bg-orange-500 p-6 text-center relative overflow-hidden flex-shrink-0">
+            <!-- App Icon Preview (Added per request) -->
+            <img src="https://cdn-icons-png.flaticon.com/512/562/562678.png" class="absolute top-4 left-4 w-10 h-10 rounded-xl shadow-md z-20 bg-white p-1.5" alt="App Icon">
+
+            <div class="absolute top-0 left-0 w-full h-full opacity-10">
+                <i class="fas fa-utensils text-6xl absolute -top-2 -left-2 transform rotate-12"></i>
+                <i class="fas fa-hamburger text-6xl absolute top-4 right-4 transform -rotate-12"></i>
+                <i class="fas fa-pizza-slice text-6xl absolute bottom-0 left-10"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-white relative z-10 mb-1 tracking-tight">今天吃什么？</h1>
+            <p class="text-orange-100 text-sm relative z-10 font-medium">把命运（和胃口）交给随机算法</p>
+        </div>
+
+        <div class="p-6 space-y-6 flex-grow overflow-y-auto">
+            
+            <!-- Filters -->
+            <div class="space-y-4">
+                <!-- Meal Time -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">时间点</label>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button onclick="setMeal('breakfast')" id="btn-breakfast" class="btn-select px-2 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-orange-50 w-full">
+                            早餐
+                        </button>
+                        <button onclick="setMeal('lunch')" id="btn-lunch" class="btn-select active px-2 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-orange-50 w-full">
+                            午餐
+                        </button>
+                        <button onclick="setMeal('dinner')" id="btn-dinner" class="btn-select px-2 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-orange-50 w-full">
+                            晚餐
+                        </button>
+                        <button onclick="setMeal('midnight')" id="btn-midnight" class="btn-select px-2 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-orange-50 w-full">
+                            夜宵
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dining Mode -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">方式</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="setMode('delivery')" id="btn-delivery" class="btn-select active px-2 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-orange-50 w-full">
+                            <i class="fas fa-motorcycle mr-1"></i>外卖
+                        </button>
+                        <button onclick="setMode('restaurant')" id="btn-restaurant" class="btn-select px-2 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-orange-50 w-full">
+                            <i class="fas fa-store mr-1"></i>堂食
+                        </button>
+                        <button onclick="setMode('home')" id="btn-home" class="btn-select px-2 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-orange-50 w-full">
+                            <i class="fas fa-utensil-spoon mr-1"></i>自己做
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Display Area -->
+            <div id="result-container" class="bg-gray-50 rounded-2xl p-8 text-center min-h-[160px] flex flex-col items-center justify-center border-2 border-dashed border-gray-300 relative transition-all duration-300">
+                <div id="placeholder-icon" class="text-gray-300 mb-2">
+                    <i class="fas fa-question-circle text-4xl"></i>
+                </div>
+                <h2 id="food-display" class="text-3xl font-bold text-gray-700 leading-tight">等待选择...</h2>
+                <p id="food-desc" class="text-sm text-gray-400 mt-2 hidden">点击下方按钮开始</p>
+
+                <!-- 1. Recipe Container (For Home Mode) -->
+                <div id="recipe-container" class="hidden mt-6 w-full bg-yellow-50 border border-yellow-200 p-4 rounded-lg text-left shadow-sm relative recipe-card">
+                    <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-yellow-100 px-3 py-0.5 rounded-full border border-yellow-200 shadow-sm">
+                         <span class="text-xs font-bold text-yellow-700">🧑‍🍳 懒人食谱</span>
+                    </div>
+                    
+                    <!-- Ingredients -->
+                    <div class="mb-3">
+                        <h3 class="text-xs font-bold text-yellow-800 uppercase tracking-wide mb-1 flex items-center">
+                            <i class="fas fa-shopping-basket mr-1.5 opacity-70"></i> 采购清单
+                        </h3>
+                        <p id="recipe-ingredients" class="text-sm text-gray-700 leading-relaxed font-medium pl-1 border-l-2 border-yellow-300">
+                            <!-- Ingredients will go here -->
+                        </p>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="border-t border-yellow-200 my-2 border-dashed"></div>
+
+                    <!-- Steps -->
+                    <div>
+                        <h3 class="text-xs font-bold text-yellow-800 uppercase tracking-wide mb-1 flex items-center">
+                            <i class="fas fa-fire-alt mr-1.5 opacity-70"></i> 简易做法
+                        </h3>
+                        <p id="recipe-steps" class="text-sm text-gray-600 leading-relaxed text-justify">
+                            <!-- Steps will go here -->
+                        </p>
+                    </div>
+
+                    <!-- Search Button -->
+                    <a id="search-link" href="#" target="_blank" class="mt-4 block w-full text-center bg-white border border-yellow-300 hover:bg-yellow-100 text-yellow-700 text-xs font-bold py-3 rounded-lg transition duration-150 active:bg-yellow-200">
+                        <i class="fab fa-tiktok mr-1"></i> 去抖音看视频教程
+                    </a>
+                </div>
+
+                <!-- 2. Restaurant Container (For Restaurant Mode) -->
+                <div id="restaurant-container" class="hidden mt-6 w-full bg-blue-50 border border-blue-200 p-4 rounded-lg text-left shadow-sm relative restaurant-card">
+                    <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-blue-100 px-3 py-0.5 rounded-full border border-blue-200 shadow-sm">
+                         <span class="text-xs font-bold text-blue-700">📍 周边探店</span>
+                    </div>
+
+                    <p class="text-sm text-gray-600 text-center mb-3">
+                        想吃<span id="restaurant-food-name" class="font-bold text-blue-600 mx-1"></span>？<br>
+                        看看附近 10km 内哪家评价最好！
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Meituan: Minimalist Yellow Dot -->
+                        <button onclick="searchNearby('meituan')" class="flex flex-col items-center justify-center p-3 bg-white border border-yellow-300 rounded-xl hover:bg-yellow-50 transition shadow-sm active:scale-95 group">
+                            <!-- Simply a yellow circle -->
+                            <div class="w-4 h-4 rounded-full bg-[#FFC300] mb-2 shadow-sm group-hover:scale-125 transition-transform"></div>
+                            <span class="text-xs font-bold text-gray-700">美团</span>
+                            <span class="text-[10px] text-gray-400">看评分/团购</span>
+                        </button>
+
+                        <!-- Amap: Minimalist Blue Dot -->
+                        <button onclick="searchNearby('amap')" class="flex flex-col items-center justify-center p-3 bg-white border border-blue-200 rounded-xl hover:bg-blue-50 transition shadow-sm active:scale-95 group">
+                            <!-- Simply a blue circle, no arrow -->
+                            <div class="w-4 h-4 rounded-full bg-blue-500 mb-2 shadow-sm group-hover:scale-125 transition-transform"></div>
+                            <span class="text-xs font-bold text-gray-700">高德地图</span>
+                            <span class="text-[10px] text-gray-400">查距离/导航</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Action Button -->
+            <button onclick="startRandomize()" id="action-btn" class="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-4 rounded-xl shadow-lg transform transition hover:scale-[1.02] active:scale-95 text-lg flex items-center justify-center gap-2 mb-4">
+                <i class="fas fa-dice"></i> 帮我决定！
+            </button>
+            
+        </div>
+    </div>
+
+    <!-- Confetti Container -->
+    <div id="confetti-container" class="fixed inset-0 pointer-events-none z-50 overflow-hidden hidden"></div>
+
+    <script>
+        // --- Data ---
+        const foodDatabase = [
+            // --- Breakfast ---
+            { 
+                name: "豆浆油条", 
+                meals: ["breakfast"], 
+                modes: ["delivery", "restaurant", "home"], 
+                ingredients: "速冻油条、豆浆粉（或现磨豆浆）、糖",
+                steps: "1. 空气炸锅180度烤油条5分钟（或油锅复炸）。2. 冲泡热豆浆。3. 油条蘸豆浆，绝配！"
+            },
+            { 
+                name: "皮蛋瘦肉粥", 
+                meals: ["breakfast", "midnight"], 
+                modes: ["delivery", "restaurant", "home"], 
+                ingredients: "皮蛋、猪里脊肉/瘦肉、大米、姜丝、葱花、盐、白胡椒粉",
+                steps: "1. 大米冷冻一晚更易煮烂。2. 瘦肉切丝腌制。3. 米煮开后加一半皮蛋煮至粘稠。4. 加肉丝和剩下皮蛋，出锅撒葱花。"
+            },
+            { name: "煎饼果子", meals: ["breakfast"], modes: ["delivery", "restaurant"] },
+            { name: "小笼包", meals: ["breakfast", "lunch"], modes: ["delivery", "restaurant"] },
+            { 
+                name: "牛奶麦片", 
+                meals: ["breakfast", "midnight"], 
+                modes: ["home"], 
+                ingredients: "牛奶（或燕麦奶）、即食麦片、坚果碎、水果丁",
+                steps: "1. 麦片倒入碗中。2. 倒入热牛奶/冷牛奶。3. 撒上坚果和水果。1分钟搞定。"
+            },
+            { name: "鸡蛋灌饼", meals: ["breakfast"], modes: ["delivery", "restaurant"] },
+            { 
+                name: "清汤面", 
+                meals: ["breakfast", "lunch", "midnight"], 
+                modes: ["home", "restaurant"], 
+                ingredients: "挂面/细面、青菜、生抽、香油、葱花、荷包蛋",
+                steps: "1. 碗底放葱花、生抽、盐、香油，用面汤冲开。2. 煮面和青菜，捞入碗中。3. 煎个荷包蛋盖上去。"
+            },
+            { 
+                name: "吐司煎蛋", 
+                meals: ["breakfast"], 
+                modes: ["home"], 
+                ingredients: "吐司面包、鸡蛋、黄油、火腿片",
+                steps: "1. 平底锅黄油融化。2. 放入吐司煎至两面金黄。3. 煎蛋和火腿，夹在吐司中间。"
+            },
+            { 
+                name: "葱油拌面", 
+                meals: ["breakfast", "lunch", "midnight"], 
+                modes: ["home", "delivery"], 
+                ingredients: "挂面/细面、小葱、食用油、生抽、老抽、糖", 
+                steps: "1. 小葱切段，油热下葱段炸至焦黄捞出。2. 锅中留葱油，加生抽老抽糖煮开。3. 煮面过凉水，淋上葱油汁拌匀。" 
+            },
+            { name: "豆腐脑/豆花", meals: ["breakfast"], modes: ["delivery", "restaurant"] },
+            { name: "肠粉", meals: ["breakfast", "lunch"], modes: ["restaurant", "delivery"] },
+            { name: "胡辣汤", meals: ["breakfast"], modes: ["restaurant", "delivery"] },
+            { name: "麦当劳早餐", meals: ["breakfast"], modes: ["delivery", "restaurant"] },
+            { 
+                name: "蒸蛋羹", 
+                meals: ["breakfast", "lunch", "dinner"], 
+                modes: ["home"], 
+                ingredients: "鸡蛋 2个、温水、生抽、香油、葱花", 
+                steps: "1. 鸡蛋打散，加入1.5倍温水搅匀撇去浮沫。2. 盖保鲜膜扎孔。3. 水开蒸8-10分钟。4. 淋上生抽香油撒葱花。" 
+            },
+
+            // --- Lunch / Dinner ---
+            { 
+                name: "黄焖鸡米饭", 
+                meals: ["lunch", "dinner"], 
+                modes: ["delivery", "restaurant", "home"], 
+                ingredients: "鸡腿肉、干香菇、青红椒、土豆、黄焖鸡酱料、姜蒜",
+                steps: "1. 鸡肉焯水。2. 锅中炒香姜蒜，下鸡肉翻炒。3. 加酱料、泡发香菇和水炖煮15分钟。4. 加土豆再炖10分钟，最后放青红椒收汁。"
+            },
+            { name: "兰州拉面", meals: ["lunch", "dinner", "midnight"], modes: ["delivery", "restaurant"] },
+            { 
+                name: "红烧牛肉面", 
+                meals: ["lunch", "dinner"], 
+                modes: ["delivery", "restaurant", "home"], 
+                ingredients: "牛腩/牛腱子、豆瓣酱、卤料包、青菜、手擀面",
+                steps: "1. 牛肉焯水。2. 炒香豆瓣酱，下牛肉和卤料包，加足量水炖煮1.5小时（高压锅30分钟）。3. 煮面，浇上牛肉汤头。"
+            },
+            { 
+                name: "炸酱面", 
+                meals: ["lunch", "dinner"], 
+                modes: ["home", "restaurant", "delivery"], 
+                ingredients: "手擀面、五花肉丁、干黄酱、甜面酱、黄瓜丝", 
+                steps: "1. 多油煸炒五花肉丁出油。2. 倒入混合好的酱料小火慢炸至油酱分离。3. 煮面过水，码上菜码，淋上炸酱。" 
+            },
+            { name: "沙县小吃", meals: ["lunch", "dinner", "midnight"], modes: ["delivery", "restaurant"] },
+            { name: "隆江猪脚饭", meals: ["lunch", "dinner"], modes: ["delivery", "restaurant"] },
+            { 
+                name: "盖浇饭", 
+                meals: ["lunch", "dinner"], 
+                modes: ["delivery", "restaurant", "home"], 
+                ingredients: "米饭、肉类（鸡丁/肉丝）、时令蔬菜、酱油、淀粉",
+                steps: "1. 肉类腌制滑油。2. 蔬菜炒断生。3. 混合炒制，加入酱油和水淀粉勾芡。4. 浇在热米饭上。"
+            },
+            { 
+                name: "麻辣烫", 
+                meals: ["lunch", "dinner", "midnight"], 
+                modes: ["delivery", "restaurant", "home"], 
+                ingredients: "火锅底料、牛奶、各种丸子、青菜、宽粉、方便面",
+                steps: "1. 锅中炒化火锅底料，加水和半袋牛奶（汤底浓郁秘诀）。2. 先煮难熟的丸子宽粉，再煮面和青菜。3. 加芝麻酱更香。"
+            },
+            { name: "凉皮肉夹馍", meals: ["lunch", "dinner"], modes: ["delivery", "restaurant"] },
+            { name: "过桥米线", meals: ["lunch", "dinner"], modes: ["delivery", "restaurant"] },
+            { name: "冒菜/串串香", meals: ["lunch", "dinner", "midnight"], modes: ["delivery", "restaurant"] },
+            { name: "酸辣粉", meals: ["lunch", "dinner", "midnight"], modes: ["delivery", "restaurant"] },
+            { name: "干炒牛河", meals: ["lunch", "dinner", "midnight"], modes: ["restaurant", "delivery"] },
+            { name: "海南鸡饭", meals: ["lunch", "dinner"], modes: ["restaurant", "delivery"] },
+            { name: "石锅拌饭", meals: ["lunch", "dinner"], modes: ["restaurant", "delivery"] },
+            { 
+                name: "扬州炒饭", 
+                meals: ["lunch", "dinner"], 
+                modes: ["restaurant", "home"], 
+                ingredients: "米饭、鸡蛋、虾仁、火腿、豌豆、胡萝卜、玉米", 
+                steps: "1. 虾仁焯水。2. 鸡蛋打散炒熟。3. 炒香配菜，倒入米饭炒散。4. 加盐调味，颗粒分明即可。" 
+            },
+            { 
+                name: "轻食沙拉", 
+                meals: ["lunch", "dinner"], 
+                modes: ["delivery", "home"], 
+                ingredients: "生菜/苦菊、鸡胸肉/虾仁、圣女果、黄瓜、油醋汁/千岛酱", 
+                steps: "1. 蔬菜洗净沥干。2. 蛋白质类煮熟切块。3. 混合所有食材，淋上酱汁拌匀。" 
+            },
+
+            // --- Feasts ---
+            { name: "重庆火锅", meals: ["lunch", "dinner"], modes: ["restaurant"] },
+            { name: "韩式烤肉", meals: ["lunch", "dinner"], modes: ["restaurant"] },
+            { name: "日式寿司", meals: ["lunch", "dinner"], modes: ["delivery", "restaurant"] },
+            { 
+                name: "披萨", 
+                meals: ["lunch", "dinner", "midnight"], 
+                modes: ["delivery", "restaurant", "home"], 
+                ingredients: "现成披萨饼底、马苏里拉芝士碎、番茄酱、培根、青椒",
+                steps: "1. 饼底刷番茄酱。2. 铺一层芝士，放上培根青椒等料。3. 再铺一层厚厚芝士。4. 烤箱200度烤15分钟。"
+            },
+            { name: "汉堡炸鸡", meals: ["lunch", "dinner", "midnight"], modes: ["delivery", "restaurant"] },
+            { 
+                name: "酸菜鱼", 
+                meals: ["lunch", "dinner"], 
+                modes: ["delivery", "restaurant", "home"], 
+                ingredients: "草鱼/巴沙鱼片、酸菜鱼调料包、豆芽、千张",
+                steps: "1. 鱼片用蛋清淀粉腌制。2. 炒香酸菜，加水煮沸。3. 下配菜煮熟捞出铺碗底。4. 关小火一片片下鱼片，变色即出锅。5. 浇热油激香花椒。"
+            },
+            { 
+                name: "牛排", 
+                meals: ["lunch", "dinner"], 
+                modes: ["restaurant", "home"], 
+                ingredients: "原切牛排、黄油、迷迭香、黑胡椒海盐、大蒜",
+                steps: "1. 牛排解冻吸干水，撒海盐黑胡椒。2. 锅烧热，大火每面煎1-2分钟（视厚度）。3. 关火放入黄油大蒜迷迭香淋油增香。4. 静置5分钟再切。"
+            },
+            { name: "烤鱼", meals: ["lunch", "dinner"], modes: ["restaurant", "delivery"] },
+            { name: "日式拉面", meals: ["lunch", "dinner"], modes: ["restaurant"] },
+            { name: "粤式早茶/点心", meals: ["breakfast", "lunch"], modes: ["restaurant"] },
+            { name: "北京烤鸭", meals: ["lunch", "dinner"], modes: ["restaurant"] },
+
+            // --- Home Cooking ---
+            { 
+                name: "番茄炒蛋配米饭", 
+                meals: ["lunch", "dinner"], 
+                modes: ["home"], 
+                ingredients: "鸡蛋 3个、番茄 2个、葱花、油、盐、糖、大米",
+                steps: "1. 鸡蛋炒熟盛出。2. 番茄炒出汁（可加点番茄酱）。3. 倒入鸡蛋，加盐和一点糖提鲜。4. 撒葱花出锅，拌饭神器！"
+            },
+            { 
+                name: "土豆烧牛肉", 
+                meals: ["lunch", "dinner"], 
+                modes: ["home", "restaurant", "delivery"], 
+                ingredients: "牛腩、土豆、胡萝卜、洋葱、八角、桂皮、生抽、老抽、冰糖", 
+                steps: "1. 牛肉焯水。2. 炒糖色或直接炒香牛肉，加香料。3. 加水炖煮1小时。4. 加入土豆胡萝卜块再炖20分钟收汁。" 
+            },
+            { 
+                name: "宫保鸡丁", 
+                meals: ["lunch", "dinner"], 
+                modes: ["home", "restaurant", "delivery"], 
+                ingredients: "鸡胸肉、花生米、干辣椒、花椒、葱段、糖、醋、淀粉", 
+                steps: "1. 鸡丁腌制滑熟盛出。2. 调宫保汁（糖醋生抽淀粉水）。3. 爆香辣椒花椒，下鸡丁和花生。4. 淋入料汁大火翻炒收汁。" 
+            },
+            { 
+                name: "麻婆豆腐", 
+                meals: ["lunch", "dinner"], 
+                modes: ["home", "restaurant", "delivery"], 
+                ingredients: "嫩豆腐、牛肉末/猪肉末、豆瓣酱、花椒粉、蒜苗、水淀粉", 
+                steps: "1. 豆腐切块焯盐水。2. 炒酥肉末，加豆瓣酱炒出红油。3. 加水煮豆腐3分钟。4. 分三次勾芡，出锅撒厚厚花椒粉。" 
+            },
+            { 
+                name: "回锅肉", 
+                meals: ["lunch", "dinner"], 
+                modes: ["restaurant", "home"], 
+                ingredients: "五花肉（二刀肉）、青蒜苗、豆豉、郫县豆瓣酱、甜面酱", 
+                steps: "1. 五花肉冷水煮至八分熟切片。2. 锅中煸炒肉片出油（灯盏窝）。3. 加豆瓣酱甜面酱炒出红油。4. 下蒜苗段断生出锅。" 
+            },
+            { 
+                name: "煮泡面加肠", 
+                meals: ["lunch", "dinner", "midnight"], 
+                modes: ["home"], 
+                ingredients: "方便面一包、火腿肠、鸡蛋、青菜",
+                steps: "1. 水开煮面饼。2. 面散开后打入鸡蛋（不要搅动）。3. 加调料包、火腿肠、青菜。4. 煮至喜欢的软硬度。"
+            },
+            { 
+                name: "速冻水饺", 
+                meals: ["lunch", "dinner", "midnight"], 
+                modes: ["home"], 
+                ingredients: "速冻饺子（韭菜/玉米/白菜）、陈醋、辣椒油",
+                steps: "1. 水开下饺子，用勺背轻推防粘底。2. 水开后点三次冷水（“三点水”）。3. 饺子全部浮起且肚子鼓胀即可。"
+            },
+            { 
+                name: "清炒时蔬", 
+                meals: ["lunch", "dinner"], 
+                modes: ["home"], 
+                ingredients: "当季青菜（油菜/菠菜/生菜）、蒜末、蚝油、盐",
+                steps: "1. 锅热倒油，爆香蒜末。2. 下青菜大火快炒（防止出水）。3. 变软后加盐、蚝油调味，迅速出锅。"
+            },
+            { 
+                name: "可乐鸡翅", 
+                meals: ["lunch", "dinner"], 
+                modes: ["home"], 
+                ingredients: "鸡中翅 8-10个、可乐一瓶、姜片、料酒、生抽",
+                steps: "1. 鸡翅两面改刀，冷水焯水。2. 煎至两面金黄。3. 倒入可乐没过鸡翅，加姜片酱油。4. 中火煮15分钟，大火收汁至粘稠。"
+            },
+            { 
+                name: "咖喱饭", 
+                meals: ["lunch", "dinner"], 
+                modes: ["home"], 
+                ingredients: "咖喱块、鸡胸肉/牛肉、土豆、胡萝卜、洋葱、米饭",
+                steps: "1. 食材切丁，洋葱爆香。2. 下肉和蔬菜翻炒。3. 加水没过食材煮熟土豆。4. 关火放入咖喱块搅拌融化。5. 开微火炖煮至浓稠。"
+            },
+            { 
+                name: "蛋炒饭", 
+                meals: ["lunch", "dinner", "midnight"], 
+                modes: ["home"], 
+                ingredients: "隔夜米饭、鸡蛋、火腿丁、葱花、杂菜粒",
+                steps: "1. 锅热油，先滑炒鸡蛋盛出。2. 炒香火腿杂菜。3. 倒入米饭炒散。4. 倒入鸡蛋，加盐/生抽，大火翻炒均匀。"
+            },
+            { 
+                name: "红烧肉", 
+                meals: ["lunch", "dinner"], 
+                modes: ["home"], 
+                ingredients: "五花肉、冰糖、生抽、老抽、姜片、八角",
+                steps: "1. 五花肉切块焯水。2. 锅中少油炒化冰糖（糖色）。3. 下肉翻炒上色，加香料酱油。4. 加开水没过肉，小火慢炖1小时，大火收汁。"
+            },
+            { 
+                name: "拍黄瓜配粥", 
+                meals: ["dinner", "midnight"], 
+                modes: ["home"], 
+                ingredients: "黄瓜、大蒜、辣椒油、陈醋、白糖、大米",
+                steps: "1. 黄瓜用刀背拍碎切段。2. 加蒜末、盐、糖、醋、辣椒油拌匀。3. 腌制10分钟更入味，配白粥绝佳。"
+            },
+            { 
+                name: "煎饺", 
+                meals: ["lunch", "dinner", "midnight"], 
+                modes: ["home"], 
+                ingredients: "速冻饺子、食用油、水、黑芝麻",
+                steps: "1. 平底锅刷油摆好饺子，煎到底部金黄。2. 倒入没过饺子底部的面粉水/清水。3. 盖盖焖干水分。4. 撒芝麻葱花出锅。"
+            },
+            
+            // --- Midnight Snacks ---
+            { 
+                name: "烤冷面", 
+                meals: ["dinner", "midnight"], 
+                modes: ["delivery", "home"], 
+                ingredients: "冷面片、鸡蛋、火腿肠、洋葱碎、香菜、蒜蓉辣酱、醋、糖", 
+                steps: "1. 平底锅刷油煎冷面片。2. 打个鸡蛋摊平。3. 翻面刷酱，放火腿洋葱。4. 卷起切块，撒香菜。" 
+            },
+            { name: "烧烤/撸串", meals: ["dinner", "midnight"], modes: ["delivery", "restaurant"] },
+            { name: "炸鸡啤酒", meals: ["dinner", "midnight"], modes: ["delivery", "restaurant"] },
+            { name: "小龙虾", meals: ["dinner", "midnight"], modes: ["delivery", "restaurant"] },
+            { 
+                name: "螺蛳粉", 
+                meals: ["lunch", "dinner", "midnight"], 
+                modes: ["delivery", "home"], 
+                ingredients: "螺蛳粉包、空心菜（推荐）、炸蛋（推荐）",
+                steps: "1. 干粉冷水下锅煮10分钟捞出。2. 另起锅烧水，加汤底包和煮好的粉。3. 加配菜包（腐竹花生酸笋等）。4. 关火加辣油和醋。"
+            },
+        ];
+
+        // --- State ---
+        let currentMeal = 'lunch';
+        let currentMode = 'delivery';
+        let isSpinning = false;
+        let animationInterval = null;
+        let lastResult = null;
+        
+        // **New State Object** to store results per mode
+        let currentMealState = {
+            delivery: null,
+            restaurant: null,
+            home: null
+        };
+
+        // --- Functions ---
+
+        function setMeal(meal) {
+            if(isSpinning) return;
+            currentMeal = meal;
+            
+            // Clear history when changing meal time
+            currentMealState = { delivery: null, restaurant: null, home: null };
+            
+            updateButtons('btn-breakfast', 'btn-lunch', 'btn-dinner', 'btn-midnight', `btn-${meal}`);
+            resetDisplay();
+            lastResult = null;
+        }
+
+        function setMode(mode) {
+            if(isSpinning) return;
+            currentMode = mode;
+            updateButtons('btn-delivery', 'btn-restaurant', 'btn-home', null, `btn-${mode}`);
+            
+            // Check if we have a saved result for this mode
+            if (currentMealState[mode]) {
+                // Restore previous result without animation
+                renderFoodResult(currentMealState[mode], false);
+            } else {
+                resetDisplay();
+            }
+        }
+
+        function updateButtons(id1, id2, id3, id4, activeId) {
+            const ids = [id1, id2, id3, id4].filter(id => id !== null);
+            ids.forEach(id => {
+                const btn = document.getElementById(id);
+                if (id === activeId) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        function resetDisplay() {
+            document.getElementById('food-display').innerText = "等待选择...";
+            document.getElementById('food-display').classList.remove('text-orange-600');
+            document.getElementById('food-display').classList.add('text-gray-700');
+            document.getElementById('placeholder-icon').innerHTML = '<i class="fas fa-question-circle text-4xl"></i>';
+            document.getElementById('result-container').classList.remove('border-orange-500', 'bg-orange-50');
+            document.getElementById('result-container').classList.add('border-gray-300', 'bg-gray-50');
+            document.getElementById('food-desc').classList.add('hidden');
+            document.getElementById('recipe-container').classList.add('hidden');
+            document.getElementById('restaurant-container').classList.add('hidden');
+            
+            // Reset button to initial state
+            const btn = document.getElementById('action-btn');
+            btn.innerHTML = '<i class="fas fa-dice"></i> 帮我决定！';
+            btn.classList.remove('opacity-75', 'cursor-not-allowed');
+        }
+
+        function getFilteredFood() {
+            return foodDatabase.filter(item => {
+                return item.meals.includes(currentMeal) && item.modes.includes(currentMode);
+            });
+        }
+
+        function startRandomize() {
+            if (isSpinning) return;
+
+            const candidates = getFilteredFood();
+            
+            if (candidates.length === 0) {
+                alert("这个组合下暂时没有合适的食物推荐，换个试试？\n(例如：早餐很少吃火锅...)");
+                return;
+            }
+
+            isSpinning = true;
+            resetDisplay();
+            
+            const display = document.getElementById('food-display');
+            const btn = document.getElementById('action-btn');
+            const container = document.getElementById('result-container');
+            const icon = document.getElementById('placeholder-icon');
+            
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在思考...';
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+            container.classList.remove('bg-gray-50', 'border-gray-300');
+            container.classList.add('bg-white', 'border-orange-300');
+            icon.innerHTML = '<i class="fas fa-utensils text-4xl animate-bounce text-orange-400"></i>';
+
+            let counter = 0;
+            const totalSpins = 25; 
+            
+            clearInterval(animationInterval);
+            
+            animationInterval = setInterval(() => {
+                const randomTemp = candidates[Math.floor(Math.random() * candidates.length)];
+                display.innerText = randomTemp.name;
+                counter++;
+
+                if (counter >= totalSpins) {
+                    finishSpin(candidates);
+                }
+            }, 80);
+        }
+
+        function finishSpin(candidates) {
+            clearInterval(animationInterval);
+            
+            let finalPool = candidates;
+            if (candidates.length > 1 && lastResult) {
+                finalPool = candidates.filter(item => item.name !== lastResult);
+            }
+
+            const finalChoice = finalPool[Math.floor(Math.random() * finalPool.length)];
+            lastResult = finalChoice.name;
+            
+            // Save state for the current mode
+            currentMealState[currentMode] = finalChoice;
+
+            renderFoodResult(finalChoice, true);
+        }
+
+        // New function to handle UI rendering
+        function renderFoodResult(foodItem, withAnimation) {
+            const display = document.getElementById('food-display');
+            const btn = document.getElementById('action-btn');
+            const container = document.getElementById('result-container');
+            const icon = document.getElementById('placeholder-icon');
+            const desc = document.getElementById('food-desc');
+            const recipeContainer = document.getElementById('recipe-container');
+            const restaurantContainer = document.getElementById('restaurant-container');
+            const recipeIng = document.getElementById('recipe-ingredients');
+            const recipeSteps = document.getElementById('recipe-steps');
+            const searchLink = document.getElementById('search-link');
+
+            // Result UI
+            display.innerText = foodItem.name;
+            display.classList.remove('text-gray-700');
+            display.classList.add('text-orange-600');
+            
+            container.classList.remove('border-orange-300', 'border-dashed');
+            container.classList.add('border-orange-500', 'border-solid', 'bg-orange-50');
+            
+            if (withAnimation) {
+                container.classList.add('shake');
+            }
+            
+            // Icon Logic
+            let iconClass = 'fa-utensils';
+            if(currentMeal === 'breakfast') iconClass = 'fa-coffee';
+            if(currentMeal === 'midnight') iconClass = 'fa-moon';
+            if(currentMode === 'delivery') iconClass = 'fa-motorcycle';
+            if(currentMode === 'home') iconClass = 'fa-utensil-spoon';
+            
+            icon.innerHTML = `<i class="fas ${iconClass} text-5xl text-orange-500"></i>`;
+            
+            desc.innerText = `完美！${getModeName()}吃${foodItem.name}！`;
+            desc.classList.remove('hidden');
+
+            // --- Mode Logic ---
+            // 1. Home Mode: Show Recipe
+            if (currentMode === 'home' && foodItem.ingredients) {
+                recipeIng.innerText = foodItem.ingredients;
+                if (foodItem.steps) {
+                    recipeSteps.innerText = foodItem.steps;
+                } else {
+                    recipeSteps.innerText = "暂无详细步骤，请发挥你的厨艺天赋！";
+                }
+                searchLink.href = `https://www.douyin.com/search/${encodeURIComponent(foodItem.name + "做法")}`;
+                recipeContainer.classList.remove('hidden');
+                restaurantContainer.classList.add('hidden');
+            } 
+            // 2. Restaurant Mode: Show Nearby Search
+            else if (currentMode === 'restaurant') {
+                document.getElementById('restaurant-food-name').innerText = foodItem.name;
+                // Update global var for search
+                window.currentSearchName = foodItem.name;
+                
+                recipeContainer.classList.add('hidden');
+                restaurantContainer.classList.remove('hidden');
+            }
+            // 3. Delivery/Other
+            else {
+                recipeContainer.classList.add('hidden');
+                restaurantContainer.classList.add('hidden');
+            }
+
+            btn.innerHTML = '<i class="fas fa-redo"></i> 不满意？换一个';
+            btn.classList.remove('opacity-75', 'cursor-not-allowed');
+            
+            isSpinning = false;
+            
+            if (withAnimation) {
+                setTimeout(() => {
+                    container.classList.remove('shake');
+                }, 500);
+                fireConfetti();
+            }
+        }
+
+        // --- Nearby Search Logic ---
+        function searchNearby(platform) {
+            // Need to get the name from the stored state or the current display logic
+            // Since we store state in currentMealState[currentMode], we can use that,
+            // or simply rely on the text content if the user hasn't switched mode yet.
+            // But better to use the specific food item for the current mode.
+            
+            let query = "";
+            if (currentMealState['restaurant']) {
+                query = currentMealState['restaurant'].name;
+            } else if (window.currentSearchName) {
+                query = window.currentSearchName;
+            }
+            
+            if (!query) return;
+
+            if (platform === 'meituan') {
+                window.open(`https://i.meituan.com/s/${encodeURIComponent(query)}`, '_blank');
+            } 
+            else if (platform === 'amap') {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const lat = position.coords.latitude;
+                            const lon = position.coords.longitude;
+                            window.open(`https://uri.amap.com/search?keyword=${encodeURIComponent(query)}&mode=list&center=${lon},${lat}`, '_blank');
+                        },
+                        (error) => {
+                            window.open(`https://uri.amap.com/search?keyword=${encodeURIComponent(query)}`, '_blank');
+                        }
+                    );
+                } else {
+                    window.open(`https://uri.amap.com/search?keyword=${encodeURIComponent(query)}`, '_blank');
+                }
+            }
+        }
+
+        function getModeName() {
+            if(currentMode === 'home') return '在家';
+            if(currentMode === 'delivery') return '点外卖';
+            if(currentMode === 'restaurant') return '出去';
+            return '';
+        }
+
+        function fireConfetti() {
+            const colors = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6'];
+            const container = document.getElementById('confetti-container');
+            container.classList.remove('hidden');
+            container.innerHTML = '';
+
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDuration = (Math.random() * 2 + 1) + 's';
+                confetti.style.opacity = Math.random();
+                container.appendChild(confetti);
+            }
+
+            setTimeout(() => {
+                container.classList.add('hidden');
+                container.innerHTML = '';
+            }, 3000);
+        }
+
+        resetDisplay();
+    </script>
+</body>
+</html>
