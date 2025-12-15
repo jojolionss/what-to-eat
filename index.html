@@ -94,8 +94,7 @@
         
         <!-- Header -->
         <div class="bg-orange-500 p-6 text-center relative overflow-hidden flex-shrink-0">
-            <!-- App Icon Preview (Added per request) -->
-            <img src="https://cdn-icons-png.flaticon.com/512/562/562678.png" class="absolute top-4 left-4 w-10 h-10 rounded-xl shadow-md z-20 bg-white p-1.5" alt="App Icon">
+            <!-- App Icon Preview removed -->
 
             <div class="absolute top-0 left-0 w-full h-full opacity-10">
                 <i class="fas fa-utensils text-6xl absolute -top-2 -left-2 transform rotate-12"></i>
@@ -734,7 +733,10 @@
             if (!query) return;
 
             if (platform === 'meituan') {
-                window.open(`https://i.meituan.com/s/${encodeURIComponent(query)}`, '_blank');
+                // FIXED: Changed from i.meituan.com (which is offline) to m.dianping.com
+                // Dianping and Meituan share the same ratings/group buying database, 
+                // and Dianping's mobile web interface works much better without requiring the App.
+                window.open(`https://m.dianping.com/shoplist/search?keyword=${encodeURIComponent(query)}`, '_blank');
             } 
             else if (platform === 'amap') {
                 if (navigator.geolocation) {
